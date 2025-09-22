@@ -1,5 +1,6 @@
 package org.demo.spring.practice.controller
 
+import jakarta.validation.Valid
 import org.demo.spring.practice.controller.dto.RequestCreateReservationDto
 import org.demo.spring.practice.controller.dto.ResponseReservationDto
 import org.demo.spring.practice.service.ReservationService
@@ -18,25 +19,23 @@ class ReservationController(
 
     @PostMapping
     fun createReservation(
-        @RequestBody reservation: RequestCreateReservationDto,
-    ): ResponseEntity<Void> {
-        log.info("Called createReservation")
-        service.createReservation(reservation)
-        return ResponseEntity.status(HttpStatus.CREATED).build()
+        @RequestBody @Valid reservationToCreate: RequestCreateReservationDto,
+    ): ResponseEntity<ResponseReservationDto> {
+        log.info("Called createReservation: $reservationToCreate")
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.createReservation(reservationToCreate))
     }
 
     @GetMapping("{id}")
     fun getReservationById(
         @PathVariable id: Long,
     ): ResponseEntity<ResponseReservationDto> {
-        log.info("Called getReservationsById")
-        return ResponseEntity
-            .ok(service.findReservationById(id))
+        log.info("Called getReservationsById = $id")
+        return ResponseEntity.ok(service.findReservationById(id))
     }
 
     @GetMapping
     fun findAllReservations(): ResponseEntity<List<ResponseReservationDto>> {
-        log.info("Called findAll")
+        log.info("Called findAllReservations")
         return ResponseEntity.ok(service.findAll())
     }
 
@@ -44,7 +43,15 @@ class ReservationController(
     fun cancelReservation(
         @PathVariable id: Long,
     ): ResponseEntity<ResponseReservationDto> {
-        log.info("Called cancelReservation")
+        log.info("Called cancelReservation: $id")
         return ResponseEntity.ok(service.cancelReservation(id))
+    }
+
+    @PostMapping("/{id}/approve")
+    fun approveReservation(
+        @PathVariable id: Long,
+    ): ResponseEntity<ResponseReservationDto> {
+        log.info("Called approveReservation: $id")
+        return ResponseEntity.ok(service.approveReservation(id))
     }
 }

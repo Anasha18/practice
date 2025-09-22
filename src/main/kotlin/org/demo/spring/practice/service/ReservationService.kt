@@ -2,72 +2,71 @@ package org.demo.spring.practice.service
 
 import org.demo.spring.practice.controller.dto.RequestCreateReservationDto
 import org.demo.spring.practice.controller.dto.ResponseReservationDto
-import org.demo.spring.practice.model.Reservation
+import org.demo.spring.practice.mapper.ReservationMapper
 import org.demo.spring.practice.model.ReservationStatus
 import org.demo.spring.practice.repository.ReservationRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDate
 
 @Service
 class ReservationService(
     private val repo: ReservationRepository,
+    private val mapper: ReservationMapper,
 ) {
     @Transactional
-    fun createReservation(reservation: RequestCreateReservationDto) {
-        val newReservation =
-            Reservation(
-                roomId = reservation.roomId,
-                userId = reservation.userId,
-                endDate = reservation.endDate,
-            )
-
-        repo.save(newReservation)
-    }
-
-    private fun checkIsAvailableReservation(id: Long?) {
-        val reservation = findReservationById(id)
-
-        if (reservation.status == ReservationStatus.APPROVED || reservation.status == ReservationStatus.CANCELED) {
-            throw RuntimeException("Бронирование под номером $id занято. Пожалуйста выберите другое!")
+    fun createReservation(reservation: RequestCreateReservationDto): ResponseReservationDto {
+        if (!reservation.endDate?.isAfter(LocalDate.now())!!) {
+            throw IllegalArgumentException("Бронирование не может быть в прошлом!")
         }
+
+        val entityToSave = mapper.toEntity(reservation)
+
+        val savedEntity = repo.save(entityToSave)
+        return mapper.toDomain(savedEntity)
     }
 
     fun findReservationById(id: Long?): ResponseReservationDto {
-        val reservation =
-            repo.findReservationById(id)
-                ?: throw RuntimeException("Бронирование не найдено!")
+        val reservation = repo.findReservationById(id) ?: throw RuntimeException("Бронирование не найдено!")
 
-        return ResponseReservationDto(
-            id = reservation?.id,
-            userId = reservation?.userId,
-            roomId = reservation?.roomId,
-            startDate = reservation?.startDate,
-            endDate = reservation?.endDate,
-            status = reservation?.status,
-        )
+        return mapper.toDomain(reservation)
     }
 
     fun findAll(): List<ResponseReservationDto> =
         repo
             .findAll()
             .map {
-                ResponseReservationDto(
-                    id = it.id,
-                    userId = it.userId,
-                    roomId = it.roomId,
-                    startDate = it.startDate,
-                    endDate = it.endDate,
-                    status = it.status,
-                )
+                mapper.toDomain(it)
             }.toList()
 
     @Transactional
     fun cancelReservation(id: Long?): ResponseReservationDto? {
-        val reservation = findReservationById(id)
-        repo.updateStatusReservation(
-            reservation.id,
-            ReservationStatus.CANCELED,
-        )
-        return reservation
+        val searchReservationToEntity = findReservationById(id)
+        val reservationToUpdated = mapper.toEntity(searchReservationToEntity)
+
+        if (reservationToUpdated.status == ReservationStatus.APPROVED) {
+            throw IllegalArgumentException("Невозможно отменить подтверждённое бронирование.")
+        }
+        if (reservationToUpdated.status == ReservationStatus.CANCELED) {
+            throw IllegalArgumentException("Невозможно отменить отмененное бронирование.")
+        }
+
+        reservationToUpdated.status = ReservationStatus.CANCELED
+        repo.save(reservationToUpdated)
+        return mapper.toDomain(reservationToUpdated)
+    }
+
+    fun approveReservation(id: Long?): ResponseReservationDto? {
+        val searchReservationToEntity = findReservationById(id)
+        val reservationToUpdated = mapper.toEntity(searchReservationToEntity)
+
+        if (reservationToUpdated.status != ReservationStatus.PENDING) {
+            throw IllegalStateException("Невозможно изменить статус бронирование = ${reservationToUpdated.status}")
+        }
+
+        reservationToUpdated.status = ReservationStatus.APPROVED
+        repo.save(reservationToUpdated)
+
+        return mapper.toDomain(reservationToUpdated)
     }
 }

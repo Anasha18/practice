@@ -14,9 +14,9 @@ data class Reservation(
     @field:Column(name = "user_id", nullable = false)
     val userId: Int? = null,
     @field:Column(name = "start_date")
-    val startDate: LocalDate = LocalDate.now(),
+    val startDate: LocalDate? = LocalDate.now(),
     @field:Column(name = "end_date", nullable = false)
     val endDate: LocalDate? = null,
     @field:Enumerated(EnumType.STRING)
-    val status: ReservationStatus = ReservationStatus.PENDING,
+    var status: ReservationStatus? = ReservationStatus.PENDING,
 )
